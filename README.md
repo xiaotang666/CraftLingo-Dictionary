@@ -19,11 +19,25 @@
 - `dictionary/latest/`：完整词典，构建前由对方的自动化把 `pending/` 增量合并进来并清空 `pending/`
 - `dictionary/pending/`：待处理暂存区，**本仓库不读取**
 
-`latest` 目录下可以有多个文件，支持 `.json` / `.jsonl`，按文件名排序依次合并（同名条目后者覆盖前者）。条目字段兼容：
+`dictionary/latest/` 下只保留**一个最终词典文件**（`Dict.json`），条目统一采用 VM 风格：
 
-- VM 风格：`origin_name` / `trans_name`（也支持 `ORIGIN_NAME`、`originName`）
-- 术语表风格：`term` / `translation`
-- 纯映射：`{"原文": "译文"}`
+```json
+[
+  {
+    "origin_name": "Diamond Sword",
+    "trans_name": "钻石剑",
+    "modid": "minecraft",
+    "key": "item.minecraft.diamond_sword",
+    "version": "1.21",
+    "curseforge": "Unknown"
+  }
+]
+```
+
+- `origin_name`：原文，必填；`trans_name`：译文，必填
+- `modid` / `key` / `version` / `curseforge`：可选，缺失按空字符串处理
+- 条目按 `origin_name`（忽略大小写）归并，重复时以 VM 词典为准
+- 文件需为 UTF-8 编码（可带 BOM）
 
 构建时可用仓库变量覆盖来源（Settings → Variables）：
 
@@ -33,18 +47,6 @@
 | `OWN_DICT_BRANCH` | `main` |
 
 汉化库不可达时工作流会告警并只用 VM 词典继续构建，不会中断。
-
-## 客户端地址
-
-```
-https://cdn.jsdelivr.net/gh/xiaotang666/CraftLingo-Dictionary@main/manifest.json
-```
-
-使用 jsDelivr 是因为 `raw.githubusercontent.com` 在部分国内网络不可达；备用地址：
-
-```
-https://raw.githubusercontent.com/xiaotang666/CraftLingo-Dictionary/main/manifest.json
-```
 
 ## 合并优先级
 
@@ -69,3 +71,5 @@ python build_dict.py --vm-dict vm/Dict.json \
 ## 许可证
 
 词典数据来自 [VM-Chinese-translate-group/i18n-Dict-Extender](https://github.com/VM-Chinese-translate-group/i18n-Dict-Extender) 与 [CFPATools/i18n-dict](https://github.com/CFPATools/i18n-dict)，遵循 **CC BY-NC-SA 4.0**，禁止商业使用，转载需署名并以相同协议共享。
+
+完整许可证文本见仓库根目录 [LICENSE](./LICENSE)。
