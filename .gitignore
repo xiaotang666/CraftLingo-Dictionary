@@ -1,0 +1,7 @@
+# 构建产物
+dist/
+vm/
+
+# Python
+__pycache__/
+*.py[cod]
