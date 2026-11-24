@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "tag": "2026-11-24",
+  "name": "CraftLingo 增强词典 2026-11-24",
+  "publishedAt": "2026-11-24T00:00:00+08:00",
+  "entryCount": 424612,
+  "contentHash": "448caca79e01b227696396eed08eea1f2bb7a64228b9c1b0bb00669ece8bd6e7",
+  "full": {
+    "url": "https://github.com/xiaotang666/CraftLingo-Dictionary/releases/download/2026-11-24/full-2026-11-24.db.zst",
+    "sha256": "e3db8fe76b0f2522e6dc416f0944b320a78cb58791f57a89f114233a7218a41b",
+    "size": 17829460,
+    "compression": "zstd"
+  },
+  "increments": []
+}
