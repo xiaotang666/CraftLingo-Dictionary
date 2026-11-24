@@ -9,12 +9,31 @@ on:
 permissions:
   contents: write
 
+env:
+  # 自有汉化库来源；只读取 dictionary/latest，pending 由汉化库自身自动化处理
+  OWN_DICT_REPO: ${{ vars.OWN_DICT_REPO || 'xiaotang666/J20-Mcmodlanguage-Package' }}
+  OWN_DICT_BRANCH: ${{ vars.OWN_DICT_BRANCH || 'main' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout data repository
         uses: actions/checkout@v4
+
+      - name: Download own dictionary (dictionary/latest only)
+        run: |
+          mkdir -p own-lib
+          if git clone --depth 1 --filter=blob:none --sparse \
+               -b "$OWN_DICT_BRANCH" \
+               "https://github.com/${OWN_DICT_REPO}.git" own-lib; then
+            git -C own-lib sparse-checkout set dictionary/latest
+            echo "own dictionary files:"
+            find own-lib/dictionary/latest -type f | head -50 || true
+          else
+            echo "::warning::自有汉化库不可用，本次仅使用 VM 词典构建"
+            rm -rf own-lib
+          fi
 
       - name: Download latest VM dictionary
         run: |
@@ -43,6 +62,7 @@ jobs:
           TAG="$(date -u -d '+8 hours' +%Y-%m-%d)"
           python3 build_dict.py \
             --vm-dict vm/Dict.json \
+            --own-dict own-lib/dictionary/latest \
             --own-dict sources/own-dict.json \
             --out dist \
             --tag "$TAG" \
@@ -55,6 +75,10 @@ jobs:
           TAG="$(date -u -d '+8 hours' +%Y-%m-%d)"
           if [ ! -f dist/manifest.json ]; then
             echo "manifest missing; nothing to publish"
+            exit 0
+          fi
+          if ! grep -q "\"tag\": \"$TAG\"" dist/manifest.json; then
+            echo "dictionary content unchanged (manifest tag is stale); nothing to publish"
             exit 0
           fi
           gh release delete "$TAG" --yes --cleanup-tag || true

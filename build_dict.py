@@ -53,24 +53,64 @@ def pick(item: dict[str, Any], *keys: str) -> str:
     return ""
 
 
-def load_entries(path: Path) -> list[dict[str, str]]:
-    if not path.is_file():
-        return []
-    data = json.loads(path.read_text(encoding="utf-8-sig"))
+OWN_ORIGIN_KEYS = ("ORIGIN_NAME", "originName", "origin_name", "term", "source_text")
+OWN_TRANS_KEYS = ("TRANS_NAME", "transName", "trans_name", "translation", "target")
+
+
+def row_from_item(item: dict[str, Any]) -> dict[str, str]:
+    return {
+        "origin": pick(item, *OWN_ORIGIN_KEYS).strip(),
+        "trans": pick(item, *OWN_TRANS_KEYS).strip(),
+        "modid": pick(item, "MODID", "modid", "mod_id"),
+        "key": pick(item, "KEY", "key"),
+        "version": pick(item, "VERSION", "version"),
+        "curseforge": pick(item, "CURSEFORGE", "curseforge"),
+    }
+
+
+def parse_entries(data: Any) -> list[dict[str, str]]:
+    """Normalize one JSON payload into rows, tolerating several schemas."""
     if isinstance(data, dict):
-        data = data.get("entries", [])
+        if "entries" in data:
+            data = data["entries"] or []
+        elif any(key in data for key in OWN_ORIGIN_KEYS):
+            # A single entry object (e.g. one line of a .jsonl file).
+            return [row_from_item(data)]
+        elif data and all(isinstance(v, str) for v in data.values()):
+            # A plain {source: translation} mapping.
+            return [
+                {"origin": str(k).strip(), "trans": v.strip(), "modid": "", "key": "", "version": "", "curseforge": ""}
+                for k, v in data.items()
+            ]
+        else:
+            return []
+    if not isinstance(data, list):
+        return []
+    return [row_from_item(item) for item in data if isinstance(item, dict)]
+
+
+def load_file(path: Path) -> list[dict[str, str]]:
+    text = path.read_text(encoding="utf-8-sig")
+    if path.suffix.lower() == ".jsonl":
+        rows: list[dict[str, str]] = []
+        for line in text.splitlines():
+            if line.strip():
+                rows.extend(parse_entries(json.loads(line)))
+        return rows
+    return parse_entries(json.loads(text))
+
+
+def dict_files(path: Path) -> list[Path]:
+    """Accept a single file or a directory (e.g. dictionary/latest)."""
+    if path.is_dir():
+        return sorted(p for p in path.rglob("*") if p.is_file() and p.suffix.lower() in (".json", ".jsonl"))
+    return [path] if path.is_file() else []
+
+
+def load_entries(path: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    for item in data:
-        rows.append(
-            {
-                "origin": pick(item, "ORIGIN_NAME", "originName", "origin_name").strip(),
-                "trans": pick(item, "TRANS_NAME", "transName", "trans_name").strip(),
-                "modid": pick(item, "MODID", "modid", "mod_id"),
-                "key": pick(item, "KEY", "key"),
-                "version": pick(item, "VERSION", "version"),
-                "curseforge": pick(item, "CURSEFORGE", "curseforge"),
-            }
-        )
+    for file in dict_files(path):
+        rows.extend(load_file(file))
     return rows
 
 
@@ -192,7 +232,12 @@ def prune(out: Path, current_tag: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--vm-dict", required=True)
-    parser.add_argument("--own-dict", default="sources/own-dict.json")
+    parser.add_argument(
+        "--own-dict",
+        action="append",
+        help="自有汉化库文件或目录（可重复，目录会递归读取其中的 .json/.jsonl）。"
+        "默认 sources/own-dict.json",
+    )
     parser.add_argument("--out", default="dist")
     parser.add_argument("--tag", required=True)
     parser.add_argument("--name", default="")
@@ -206,7 +251,14 @@ def main() -> int:
     if manifest_path.is_file():
         previous_manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
 
-    rows = merge(load_entries(Path(args.own_dict)), load_entries(Path(args.vm_dict)))
+    own_rows: list[dict[str, str]] = []
+    for own_path in args.own_dict or ["sources/own-dict.json"]:
+        files = dict_files(Path(own_path))
+        if Path(own_path).is_dir() and not files:
+            print(f"warning: no dictionary files under {own_path}", file=sys.stderr)
+        for file in files:
+            own_rows.extend(load_file(file))
+    rows = merge(own_rows, load_entries(Path(args.vm_dict)))
     if not rows:
         print("no entries to publish", file=sys.stderr)
         return 1
