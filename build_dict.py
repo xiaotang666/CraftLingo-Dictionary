@@ -44,6 +44,15 @@ CREATE INDEX dict_index ON dict(ORIGIN_NAME);
 """
 
 
+def pick(item: dict[str, Any], *keys: str) -> str:
+    """Return the first non-empty field among aliases (VM uses snake_case)."""
+    for key in keys:
+        value = item.get(key)
+        if value is not None and str(value).strip():
+            return str(value)
+    return ""
+
+
 def load_entries(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
@@ -54,12 +63,12 @@ def load_entries(path: Path) -> list[dict[str, str]]:
     for item in data:
         rows.append(
             {
-                "origin": str(item.get("ORIGIN_NAME") or item.get("originName") or "").strip(),
-                "trans": str(item.get("TRANS_NAME") or item.get("transName") or "").strip(),
-                "modid": str(item.get("MODID") or item.get("modid") or ""),
-                "key": str(item.get("KEY") or item.get("key") or ""),
-                "version": str(item.get("VERSION") or item.get("version") or ""),
-                "curseforge": str(item.get("CURSEFORGE") or item.get("curseforge") or ""),
+                "origin": pick(item, "ORIGIN_NAME", "originName", "origin_name").strip(),
+                "trans": pick(item, "TRANS_NAME", "transName", "trans_name").strip(),
+                "modid": pick(item, "MODID", "modid", "mod_id"),
+                "key": pick(item, "KEY", "key"),
+                "version": pick(item, "VERSION", "version"),
+                "curseforge": pick(item, "CURSEFORGE", "curseforge"),
             }
         )
     return rows
