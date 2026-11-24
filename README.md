@@ -15,6 +15,12 @@
 ## 客户端地址
 
 ```
+https://cdn.jsdelivr.net/gh/xiaotang666/CraftLingo-Dictionary@main/manifest.json
+```
+
+使用 jsDelivr 是因为 `raw.githubusercontent.com` 在部分国内网络不可达；备用地址：
+
+```
 https://raw.githubusercontent.com/xiaotang666/CraftLingo-Dictionary/main/manifest.json
 ```
 
